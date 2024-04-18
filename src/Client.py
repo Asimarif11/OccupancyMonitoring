@@ -7,42 +7,54 @@ Created on Thu Apr 18 21:23:40 2024
 
 import paho.mqtt.client as mqtt
 import time
+import logging
+
+# Setup basic configuration for logging
+logging.basicConfig(level=logging.INFO)
 
 def on_connect(client, userdata, flags, rc):
-    print("Connected with result code " + str(rc))
-    # Subscribe to the response topic upon successful connection
-    client.subscribe("occupancy/response")
+    if rc == 0:
+        logging.info("Connected successfully.")
+        client.subscribe("occupancy/response")
+    else:
+        logging.error(f"Failed to connect, return code {rc}")
+
+def on_disconnect(client, userdata, rc):
+    if rc != 0:
+        logging.warning("Unexpected disconnection.")
+        try:
+            client.reconnect()
+        except Exception as e:
+            logging.error(f"Reconnection failed: {str(e)}")
 
 def on_message(client, userdata, msg):
     if msg.topic == "occupancy/response":
-        # Print the received message
-        print(f"Received aggregated data: {msg.payload.decode()}")
-        # Consider adding a client disconnect here after receiving the data
-        client.disconnect()
+        logging.info(f"Received aggregated data: {msg.payload.decode()}")
 
 client = mqtt.Client()
 client.on_connect = on_connect
 client.on_message = on_message
+client.on_disconnect = on_disconnect
 
-client.connect("localhost", 1883, 60)  # Connect to the broker
+try:
+    client.connect("localhost", 1883, 60)  # Connect to the broker
+    client.loop_start()  # Start a non-blocking loop to handle incoming messages and reconnections
 
-# Start a non-blocking loop to handle incoming messages and reconnections
-client.loop_start()
+    # Sending data
+    data_points = [
+        (1, 2, 0), (1, 3, 1), (2, 2, 0), (2, 3, 0)
+    ]
+    for x, y, value in data_points:
+        payload = f"{x},{y},{value}"
+        client.publish("occupancy/data", payload)
+        logging.info(f"Sent data: {payload}")
+        time.sleep(1)
 
-# Sending data
-data_points = [
-    (1, 2, 0), (1, 3, 1), (2, 2, 0), (3, 3, 0)
-]
-for x, y, value in data_points:
-    client.publish("occupancy/data", f"{x},{y},{value}")
-    time.sleep(1)
+    # Requesting aggregated data
+    client.publish("occupancy/request", "get data")
+    time.sleep(5)  # Wait to receive data
 
-# Requesting aggregated data
-client.publish("occupancy/request", "get data")
-
-# Allow some time for the server to respond and for message handling
-time.sleep(5)  # Adjusted to wait longer
-
-# Stop the loop and disconnect after enough time has passed
-client.loop_stop()
-client.disconnect()
+    client.loop_stop()  # Stop the loop
+    client.disconnect()  # Disconnect cleanly
+except Exception as e:
+    logging.error(f"Operation failed: {str(e)}")
