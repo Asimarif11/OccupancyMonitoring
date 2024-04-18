@@ -36,7 +36,41 @@ Create a Virtual Environment (optional but recommended):
     python -m venv venv
 source venv/bin/activate  # On Windows use `venv\Scripts\activate`
 
-Install Required Packages:
+Install Required Packages (Please note that Spyder IDE was used and therefore includes packages related to ipython console):
 
 
     pip install -r requirements.txt
+    
+If not using Spyder IDE, just install paho MQTT library ( Note that teh version is important, the latest version has errors related to the Callback argument when initializing
+mqtt.client class)
+
+    pip install paho-mqtt==1.6.1
+
+Running the Application
+
+Start the MQTT Broker:
+Ensure that your MQTT broker is running on the default port (usually 1883). If Mosquitto is installed and on windows, search services and find Mosquitto Broker and start it.
+
+Run the Server:
+
+    python src/client.py
+    
+Run the Client:
+
+    python src/client.py
+
+Run Client2:
+
+    python src/client2.py
+
+Detailed Functionality
+
+Server:
+        Listens for data on the occupancy/data topic.
+        Stores or updates occupancy data based on the latest messages received.
+        On receiving a request on occupancy/request, sends the aggregated occupancy data to occupancy/response.
+
+Clients:
+        Send data to occupancy/data with coordinates and occupancy status.
+        Request aggregated data from occupancy/request.
+        The example clients are set up to demonstrate overlapping coordinates with different occupancy values. Depending on the sequence of execution, the final aggregated data seen by running client2.py will reflect the latest updates by either client.
